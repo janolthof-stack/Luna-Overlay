@@ -6,6 +6,7 @@ import android.animation.PropertyValuesHolder
 import android.app.Service
 import android.content.Intent
 import android.graphics.Outline
+import android.graphics.drawable.AnimationDrawable
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.IBinder
@@ -30,6 +31,7 @@ class OverlayService : Service() {
     private var imageView: ImageView? = null
     private var ambientAnimation: ObjectAnimator? = null
     private var stateAnimation: AnimatorSet? = null
+    private var frameAnimation: AnimationDrawable? = null
     private val handler = Handler(Looper.getMainLooper())
     private var state = LunaState.NEUTRAL
 
@@ -106,11 +108,19 @@ class OverlayService : Service() {
         val v = imageView ?: return
         state = newState
         stateAnimation?.cancel()
+        frameAnimation?.stop()
+        frameAnimation = null
         v.animate().cancel()
 
         val swap = {
             v.setImageResource(newState.drawable)
-            runStateMotion(v, newState)
+            val drawable = v.drawable
+            if (drawable is AnimationDrawable) {
+                frameAnimation = drawable
+                v.post { drawable.start() }
+            } else {
+                runStateMotion(v, newState)
+            }
         }
 
         if (animateTransition) {
@@ -175,6 +185,7 @@ class OverlayService : Service() {
         handler.removeCallbacksAndMessages(null)
         ambientAnimation?.cancel()
         stateAnimation?.cancel()
+        frameAnimation?.stop()
         imageView?.animate()?.cancel()
         imageView?.let { wm.removeView(it) }
         imageView = null
