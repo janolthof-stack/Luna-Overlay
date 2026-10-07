@@ -44,7 +44,7 @@ class OverlayService : Service() {
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val size = (160 * resources.displayMetrics.density).toInt()
 
-        imageView = ImageView(this).apply {
+        imageView = LunaImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setImageResource(state.drawable)
             outlineProvider = object : ViewOutlineProvider() {
