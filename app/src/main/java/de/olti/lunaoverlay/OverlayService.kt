@@ -6,6 +6,9 @@ import android.animation.PropertyValuesHolder
 import android.app.Service
 import android.content.Intent
 import android.graphics.Outline
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Color
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.PixelFormat
 import android.os.Handler
@@ -17,6 +20,7 @@ import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.ImageView
+import android.content.Context
 
 class OverlayService : Service() {
     enum class LunaState(val drawable: Int) {
@@ -28,7 +32,7 @@ class OverlayService : Service() {
 
     private lateinit var wm: WindowManager
     private lateinit var params: WindowManager.LayoutParams
-    private var imageView: ImageView? = null
+    private var imageView: LunaImageView? = null
     private var ambientAnimation: ObjectAnimator? = null
     private var stateAnimation: AnimatorSet? = null
     private var frameAnimation: AnimationDrawable? = null
@@ -118,9 +122,8 @@ class OverlayService : Service() {
             if (drawable is AnimationDrawable) {
                 frameAnimation = drawable
                 v.post { drawable.start() }
-            } else {
-                runStateMotion(v, newState)
             }
+            v.listening = newState == LunaState.SMILING
         }
 
         if (animateTransition) {
@@ -178,6 +181,43 @@ class OverlayService : Service() {
         stateAnimation = AnimatorSet().apply {
             if (nod != null) playTogether(motion, nod) else play(motion)
             start()
+        }
+    }
+
+
+    private class LunaImageView(context: Context) : ImageView(context) {
+        var listening: Boolean = false
+            set(value) {
+                field = value
+                blinkStart = if (value) System.currentTimeMillis() else 0L
+                invalidate()
+            }
+        private val lidPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(128, 82, 68) }
+        private var blinkStart = 0L
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            if (!listening) return
+            val cycle = ((System.currentTimeMillis() - blinkStart) % 2600L).toFloat()
+            val amount = when {
+                cycle < 2050f -> 0f
+                cycle < 2110f -> (cycle - 2050f) / 60f
+                cycle < 2190f -> 1f
+                cycle < 2250f -> 1f - (cycle - 2190f) / 60f
+                else -> 0f
+            }
+            if (amount > 0f) {
+                val sx = width / 320f
+                val sy = height / 238f
+                fun lid(l: Float, t: Float, r: Float, b: Float) {
+                    val cy = (t + b) / 2f
+                    val half = (b - t) * amount / 2f
+                    canvas.drawRoundRect(l*sx, (cy-half)*sy, r*sx, (cy+half)*sy, 3f*sx, 3f*sy, lidPaint)
+                }
+                lid(103f, 78f, 137f, 91f)
+                lid(166f, 77f, 200f, 90f)
+            }
+            postInvalidateDelayed(16L)
         }
     }
 
