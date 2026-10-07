@@ -33,24 +33,6 @@ class OverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var state = LunaState.NEUTRAL
 
-    // Temporary demo sequence. Later this same setState() entry point can be
-    // driven by ChatGPT/TTS events and real lip-sync data.
-    private val demoStates = arrayOf(
-        LunaState.NEUTRAL,
-        LunaState.SMILING,
-        LunaState.THINKING,
-        LunaState.SPEAKING
-    )
-    private var demoIndex = 0
-
-    private val demoCycle = object : Runnable {
-        override fun run() {
-            demoIndex = (demoIndex + 1) % demoStates.size
-            setState(demoStates[demoIndex])
-            handler.postDelayed(this, if (state == LunaState.SPEAKING) 5200L else 4000L)
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -104,7 +86,6 @@ class OverlayService : Service() {
         wm.addView(imageView, params)
         startAmbientBreathing()
         setState(LunaState.NEUTRAL, animateTransition = false)
-        handler.postDelayed(demoCycle, 3500)
     }
 
     private fun startAmbientBreathing() {
@@ -141,6 +122,19 @@ class OverlayService : Service() {
             swap()
             v.alpha = 1f
         }
+    }
+
+    private fun stateFromAction(action: String?): LunaState? = when (action) {
+        ACTION_LISTENING -> LunaState.SMILING
+        ACTION_THINKING -> LunaState.THINKING
+        ACTION_SPEAKING -> LunaState.SPEAKING
+        ACTION_IDLE -> LunaState.NEUTRAL
+        else -> null
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        stateFromAction(intent?.action)?.let { setState(it) }
+        return START_STICKY
     }
 
     private fun runStateMotion(v: View, newState: LunaState) {
@@ -188,4 +182,12 @@ class OverlayService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    companion object {
+        const val ACTION_LISTENING = "de.olti.lunaoverlay.action.LISTENING"
+        const val ACTION_THINKING = "de.olti.lunaoverlay.action.THINKING"
+        const val ACTION_SPEAKING = "de.olti.lunaoverlay.action.SPEAKING"
+        const val ACTION_IDLE = "de.olti.lunaoverlay.action.IDLE"
+    }
 }
+
