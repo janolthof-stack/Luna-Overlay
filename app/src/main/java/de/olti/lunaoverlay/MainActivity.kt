@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 
 class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -17,8 +19,8 @@ class MainActivity : Activity() {
             setPadding(48, 80, 48, 48)
         }
         layout.addView(TextView(this).apply {
-            text = "Luna Overlay\n\n1. Overlay erlauben\n2. Luna starten"
-            textSize = 22f
+            text = "Luna Overlay – Zustandstest\n\nDie vier Zustände lassen sich hier einzeln prüfen. Die automatische Kopplung an ChatGPT und echte Bildsequenzen fehlen noch."
+            textSize = 20f
         })
         layout.addView(Button(this).apply {
             text = "Overlay erlauben"
@@ -27,14 +29,28 @@ class MainActivity : Activity() {
                     Uri.parse("package:$packageName")))
             }
         })
-        layout.addView(Button(this).apply {
-            text = "Luna starten"
-            setOnClickListener {
-                if (Settings.canDrawOverlays(this@MainActivity)) {
-                    startService(Intent(this@MainActivity, OverlayService::class.java))
+        fun stateButton(label: String, action: String) {
+            layout.addView(Button(this).apply {
+                text = label
+                setOnClickListener {
+                    if (Settings.canDrawOverlays(this@MainActivity)) {
+                        startService(Intent(this@MainActivity, OverlayService::class.java).setAction(action))
+                    } else {
+                        Toast.makeText(this@MainActivity, "Bitte zuerst Overlay erlauben.", Toast.LENGTH_LONG).show()
+                    }
                 }
+            })
+        }
+        stateButton("Luna starten / Ruhezustand", OverlayService.ACTION_IDLE)
+        stateButton("Zuhören testen", OverlayService.ACTION_LISTENING)
+        stateButton("Denken testen", OverlayService.ACTION_THINKING)
+        stateButton("Antworten testen", OverlayService.ACTION_SPEAKING)
+        layout.addView(Button(this).apply {
+            text = "Luna beenden"
+            setOnClickListener {
+                stopService(Intent(this@MainActivity, OverlayService::class.java))
             }
         })
-        setContentView(layout)
+        setContentView(ScrollView(this).apply { addView(layout) })
     }
 }
