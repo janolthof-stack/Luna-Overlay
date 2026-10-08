@@ -3,6 +3,9 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,7 +19,35 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle assembleDebug
+      - name: Download last installed candidate for signature comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: Luna-Overlay-APK
+          path: previous-apk
+          run-id: 37609365178
+          github-token: ${{ github.token }}
+      - name: Verify APK signatures and compare update compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          "$signer" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk > current-signature.txt
+          "$signer" verify --verbose --print-certs previous-apk/app-debug.apk > previous-signature.txt
+          cat current-signature.txt
+          python3 - <<'PY'
+          import pathlib, re
+          pattern = r"Signer #1 certificate SHA-256 digest: (\S+)"
+          old = re.search(pattern, pathlib.Path("previous-signature.txt").read_text()).group(1)
+          new = re.search(pattern, pathlib.Path("current-signature.txt").read_text()).group(1)
+          print("Previous certificate SHA256:", old)
+          print("Current certificate SHA256:", new)
+          print("UPDATE_SIGNATURE_MATCH=" + str(old == new).lower())
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: Luna-Overlay-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Luna-Signature-Report
+          path: '*-signature.txt'
