@@ -9,7 +9,7 @@ android {
         applicationId = "de.olti.lunaoverlay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
+        versionCode = System.getenv("LUNA_VERSION_CODE")?.toIntOrNull() ?: 10
         versionName = "0.2.0"
     }
     compileOptions {
