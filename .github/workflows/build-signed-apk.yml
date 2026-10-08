@@ -1,0 +1,73 @@
+name: Build Luna with stable signature
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  signed-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load permanent signing key
+        env:
+          LUNA_SIGNING_JSON: ${{ secrets.LUNA_SIGNING_JSON }}
+        run: |
+          python3 - <<'PY'
+          import os, json, base64, pathlib
+          raw = os.environ.get("LUNA_SIGNING_JSON", "")
+          if not raw:
+              raise SystemExit("Missing repository secret LUNA_SIGNING_JSON. No APK will be published with a temporary key.")
+          data = json.loads(raw)
+          p = pathlib.Path(os.environ["RUNNER_TEMP"]) / "luna-signing.p12"
+          p.write_bytes(base64.b64decode(data["keystore_base64"], validate=True))
+          p.chmod(0o600)
+          for field in ("store_password", "key_password"):
+              value = data[field]
+              if "\n" in value or "\r" in value:
+                  raise SystemExit("Invalid signing password")
+              print("::add-mask::" + value)
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write("LUNA_KEYSTORE=" + str(p) + "\n")
+              f.write("LUNA_STORE_PASSWORD=" + data["store_password"] + "\n")
+              f.write("LUNA_KEY_PASSWORD=" + data["key_password"] + "\n")
+              f.write("LUNA_KEY_ALIAS=" + data["key_alias"] + "\n")
+              f.write("LUNA_EXPECTED_CERTIFICATE=" + data["certificate_sha256"] + "\n")
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build APK with increasing version
+        env:
+          LUNA_BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          export LUNA_VERSION_CODE=$((1000 + LUNA_BUILD_NUMBER))
+          gradle assembleDebug
+      - name: Sign and verify permanent certificate
+        run: |
+          set -euo pipefail
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          "$signer" sign --ks "$LUNA_KEYSTORE" --ks-key-alias "$LUNA_KEY_ALIAS" --ks-pass env:LUNA_STORE_PASSWORD --key-pass env:LUNA_KEY_PASSWORD --out Luna-Overlay.apk app/build/outputs/apk/debug/app-debug.apk
+          "$signer" verify --verbose --print-certs Luna-Overlay.apk > luna-signature.txt
+          python3 - <<'PY'
+          import os, re, pathlib
+          text = pathlib.Path("luna-signature.txt").read_text()
+          actual = re.findall(r"certificate SHA-256 digest: (\S+)", text)
+          expected = os.environ["LUNA_EXPECTED_CERTIFICATE"].lower()
+          if not actual or any(cert.lower() != expected for cert in actual):
+              raise SystemExit("Signing certificate mismatch; APK will not be published.")
+          print("Permanent certificate verified:", expected)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Luna-Overlay-Signed-APK
+          path: |
+            Luna-Overlay.apk
+            luna-signature.txt
+          if-no-files-found: error
+      - name: Remove temporary private key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/luna-signing.p12"
