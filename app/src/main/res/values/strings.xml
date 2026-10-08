@@ -1,0 +1,4 @@
+<resources>
+    <string name="luna_automation_label">Luna Overlay – automatische Zustandsanzeige</string>
+    <string name="luna_automation_description">Luna prüft lokal Statusanzeigen und Bedienelemente der ChatGPT-App, um ihren Zustand ohne zusätzliche Tastendrücke anzuzeigen. Keine Mikrofonaufnahme, keine automatischen Klicks, keine Speicherung oder Übertragung von Gesprächsinhalten. Die Erkennung ist ein Prototyp und kann bei fehlenden Statusanzeigen keinen Zustand feststellen.</string>
+</resources>

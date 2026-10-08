@@ -1,0 +1,9 @@
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/luna_automation_description"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:packageNames="com.openai.chatgpt"
+    android:accessibilityFeedbackType="feedbackVisual"
+    android:accessibilityFlags="flagReportViewIds"
+    android:notificationTimeout="300"
+    android:canRetrieveWindowContent="true"
+    android:settingsActivity="de.olti.lunaoverlay.MainActivity" />
