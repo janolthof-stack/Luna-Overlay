@@ -1,5 +1,7 @@
 name: Build Luna with stable signature
 on:
+  push:
+    branches: [ 'codex/automatic-states' ]
   workflow_dispatch:
 permissions:
   contents: read
