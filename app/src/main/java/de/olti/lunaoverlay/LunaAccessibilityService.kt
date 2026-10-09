@@ -10,7 +10,6 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -18,7 +17,7 @@ import android.widget.TextView
 class LunaAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var overlay: LinearLayout? = null
-    private var image: ImageView? = null
+    private var image: LunaAvatarView? = null
     private var caption: TextView? = null
     private var lastState: ChatGptStateDetector.State? = null
     private val wm by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
@@ -48,6 +47,7 @@ class LunaAccessibilityService : AccessibilityService() {
         }
         val root = rootInActiveWindow
         if (root == null || root.packageName?.toString() != CHATGPT_PACKAGE) {
+            root?.recycle()
             removeOverlay()
             return
         }
@@ -69,18 +69,12 @@ class LunaAccessibilityService : AccessibilityService() {
                 try { collect(child) } finally { child.recycle() }
             }
         }
-        collect(root)
+        try { collect(root) } finally { root.recycle() }
         val state = ChatGptStateDetector.detect(labels)
         if (overlay == null && !createOverlay()) return
         if (state == lastState) return
         lastState = state
-        val drawable = when (state) {
-            ChatGptStateDetector.State.LISTENING -> R.drawable.luna_listening
-            ChatGptStateDetector.State.THINKING -> R.drawable.luna_thinking
-            ChatGptStateDetector.State.SPEAKING -> R.drawable.luna_responding
-            else -> R.drawable.luna_waiting
-        }
-        image?.setImageResource(drawable)
+        val animated = image?.showState(state) == true
         val message = when (state) {
             ChatGptStateDetector.State.IDLE -> "Bereit"
             ChatGptStateDetector.State.LISTENING -> "Zuhören erkannt"
@@ -88,8 +82,9 @@ class LunaAccessibilityService : AccessibilityService() {
             ChatGptStateDetector.State.SPEAKING -> "Sprachausgabe erkannt"
             ChatGptStateDetector.State.UNKNOWN -> "Kein eindeutiges Zustandssignal"
         }
-        caption?.text = message
-        getSharedPreferences("luna_status", MODE_PRIVATE).edit().putString("last_status", message).apply()
+        val status = if (animated) message else "$message · Animation fehlt"
+        caption?.text = status
+        getSharedPreferences("luna_status", MODE_PRIVATE).edit().putString("last_status", status).apply()
     }
 
     private fun createOverlay(): Boolean {
@@ -99,7 +94,7 @@ class LunaAccessibilityService : AccessibilityService() {
             setBackgroundColor(0xDD202020.toInt())
             importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         }
-        image = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
+        image = LunaAvatarView(this)
         caption = TextView(this).apply {
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 12f
@@ -152,7 +147,10 @@ class LunaAccessibilityService : AccessibilityService() {
         overlay = null; image = null; caption = null; lastState = null
     }
 
-    override fun onInterrupt() { removeOverlay() }
+    override fun onInterrupt() {
+        handler.removeCallbacks(tick)
+        removeOverlay()
+    }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)

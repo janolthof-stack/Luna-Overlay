@@ -10,7 +10,9 @@ Only visible control/status labels in `com.openai.chatgpt` are considered. No mi
 
 This is **not a verified voice integration**. The label vocabulary is provisional and must be checked against an actual device. A microphone-mute button does not establish that the user is speaking. Missing or conflicting labels yield `UNKNOWN`, with an explicit caption and the waiting picture; states are never advanced by a simulated conversation timer. The overlay hides outside ChatGPT and when the screen is off.
 
-The existing four JPG assets are still static pictures. Real idle/listening/typing/speaking sequences remain unfinished. This prototype does not claim to implement them.
+The existing four JPG assets are still static pictures. The automatic overlay now supports real looping GIF sequences at `app/src/main/assets/luna/idle.gif`, `listening.gif`, `thinking.gif`, and `speaking.gif`. Each must be an actual multi-frame character animation with a positive duration. The player uses monotonic time, scales and centers the clip, and schedules rendering only while attached and visible. Missing, invalid, or zero-duration media falls back to the existing picture with the explicit caption **Animation fehlt**. No sequence is bundled yet: real idle/listening/typing/speaking assets and visual device verification remain unfinished.
+
+The permanent-signature workflow last failed because the repository secret `LUNA_SIGNING_JSON` was absent. Debug build success does not establish upgrade compatibility. Restore the original signing material before claiming an in-place update; a new key cannot prove compatibility with the installed APK.
 
 ## Validation
 
